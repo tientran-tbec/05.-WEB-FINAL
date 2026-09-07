@@ -497,6 +497,54 @@ const TEST_DATA = {"test": "Test 8", "parts": [{"part": 1, "kind": "notes", "tit
   }
   window.addEventListener('pagehide', sendLeave);
   window.addEventListener('beforeunload', sendLeave);
+
+  // 4) Theo dõi hoạt động: nghe audio (chính/script), check điểm, xem script/giải thích, tua câu hỏi
+  function currentName(){
+    try{ return localStorage.getItem('fts_student_name') || ''; }catch(e){ return ''; }
+  }
+  function sendActivity(evt, detail){
+    send({action:'test_activity', session_id:sessionId, test:TEST_NAME, name:currentName(), event:evt, detail:detail||''});
+  }
+
+  var playedOnce = {};
+  document.addEventListener('play', function(e){
+    var audio = e.target;
+    if(!audio || audio.tagName !== 'AUDIO') return;
+    var partEl = audio.closest ? audio.closest('.part') : null;
+    var partNum = partEl ? partEl.dataset.part : '?';
+    var isScript = audio.getAttribute('data-role') === 'script-audio';
+    var key = (isScript ? 'script' : 'main') + '-' + partNum;
+    if(playedOnce[key]) return;
+    playedOnce[key] = true;
+    sendActivity(isScript ? 'audio_play_script' : 'audio_play_main', 'Part ' + partNum);
+  }, true);
+
+  document.addEventListener('click', function(e){
+    var btn = e.target.closest ? e.target.closest('[data-action]') : null;
+    if(!btn) return;
+    var action = btn.dataset.action;
+    var card = btn.closest ? btn.closest('.card') : null;
+    var partEl = btn.closest ? btn.closest('.part') : null;
+    var partNum = partEl ? partEl.dataset.part : '?';
+
+    if(action === 'check'){
+      var pill = card ? card.querySelector('[data-role="score"]') : null;
+      var scoreText = pill ? pill.textContent : '';
+      sendActivity('check_score', 'Part ' + partNum + (scoreText ? ' - ' + scoreText : ''));
+    }
+    else if(action === 'toggle-script'){
+      var sec = card ? card.querySelector('[data-role="script-section"]') : null;
+      if(sec && sec.classList.contains('open')) sendActivity('view_script', 'Part ' + partNum);
+    }
+    else if(action === 'toggle-expl'){
+      var sec2 = card ? card.querySelector('[data-role="expl-section"]') : null;
+      if(sec2 && sec2.classList.contains('open')) sendActivity('view_explanation', 'Part ' + partNum);
+    }
+    else if(action === 'jump-audio'){
+      var t = btn.dataset.time || '';
+      sendActivity('jump_click', 'Part ' + partNum + (t ? ' @ ' + Math.round(Number(t)) + 's' : ''));
+    }
+  }, false);
 })();
 </script>
 </body>
